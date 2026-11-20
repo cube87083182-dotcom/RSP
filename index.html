@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>NEON RPS ARENA - 1:1 랜덤 매칭 가위바위보</title>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: manipulation;
+    }
+
+    :root {
+      --bg: #090b16;
+      --panel: #13182e;
+      --border: #263159;
+      --cyan: #00f5d4;
+      --pink: #ff2a85;
+      --yellow: #fee440;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at top, #171e3b 0%, var(--bg) 70%);
+      color: var(--text);
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 480px;
+      height: 100%;
+      max-height: 820px;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      position: relative;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-size: 1.2rem;
+      font-weight: 900;
+      letter-spacing: 1px;
+      background: linear-gradient(90deg, var(--cyan), var(--pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .icon-btn {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .icon-btn:active {
+      transform: scale(0.95);
+    }
+
+    .screen {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      justify-content: center;
+      gap: 14px;
+      animation: fadeIn 0.25s ease;
+    }
+
+    .screen.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card {
+      background: rgba(19, 24, 46, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input {
+      width: 100%;
+      background: #0b0f20;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 700;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--cyan);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.1s, filter 0.15s;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-random {
+      background: linear-gradient(135deg, var(--yellow), #ff9f1c);
+      color: #161102;
+      box-shadow: 0 0 20px rgba(254, 228, 64, 0.35);
+      font-size: 1.05rem;
+    }
+
+    .btn-cyan {
+      background: var(--cyan);
+      color: #041311;
+      box-shadow: 0 0 18px rgba(0, 245, 212, 0.3);
+    }
+
+    .btn-pink {
+      background: var(--pink);
+      color: #fff;
+      box-shadow: 0 0 18px rgba(255, 42, 133, 0.3);
+    }
+
+    .btn-dark {
+      background: #1d2547;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .status-msg {
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--yellow);
+      min-height: 20px;
+      font-weight: 600;
+    }
+
+    .code-box {
+      text-align: center;
+      background: #0b0f20;
+      border: 2px dashed var(--cyan);
+      border-radius: 14px;
+      padding: 18px;
+      margin: 12px 0;
+    }
+
+    .code-text {
+      font-size: 2.2rem;
+      font-weight: 900;
+      letter-spacing: 6px;
+      color: var(--cyan);
+    }
+
+    .radar {
+      width: 74px;
+      height: 74px;
+      margin: 10px auto 14px;
+      border-radius: 50%;
+      border: 4px solid rgba(254, 228, 64, 0.2);
+      border-top-color: var(--yellow);
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .count-pill {
+      display: inline-block;
+      background: rgba(0, 245, 212, 0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(0, 245, 212, 0.4);
+      font-weight: 900;
+      font-size: 1.1rem;
+      padding: 4px 14px;
+      border-radius: 99px;
+      margin-bottom: 10px;
+    }
+
+    .scoreboard {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 16px;
+      text-align: center;
+    }
+
+    .player-name {
+      font-size: 0.85rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .player-score {
+      font-size: 1.6rem;
+      font-weight: 900;
+      margin-top: 2px;
+    }
+
+    .streak-badge {
+      font-size: 0.75rem;
+      background: rgba(254, 228, 64, 0.15);
+      color: var(--yellow);
+      padding: 4px 10px;
+      border-radius: 99px;
+      font-weight: 800;
+    }
+
+    .arena {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(11, 15, 32, 0.75);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hand-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hand-emoji {
+      font-size: 4.2rem;
+      line-height: 1;
+      transition: transform 0.2s;
+    }
+
+    .hand-state {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .shake {
+      animation: shakeHand 0.35s infinite alternate ease-in-out;
+    }
+
+    @keyframes shakeHand {
+      from { transform: translateY(-10px) rotate(-8deg); }
+      to { transform: translateY(10px) rotate(8deg); }
+    }
+
+    .center-banner {
+      font-size: 1.5rem;
+      font-weight: 900;
+      text-align: center;
+      padding: 8px 18px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .choices {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .choice-btn {
+      background: var(--panel);
+      border: 2px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .choice-btn span.emoji {
+      font-size: 2.5rem;
+    }
+
+    .choice-btn span.name {
+      font-size: 0.9rem;
+      font-weight: 800;
+    }
+
+    .choice-btn.selected {
+      border-color: var(--cyan);
+      background: rgba(0, 245, 212, 0.15);
+      transform: translateY(-4px);
+      box-shadow: 0 0 15px rgba(0, 245, 212, 0.3);
+    }
+
+    .choice-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .emote-bar {
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .emote-btn {
+      flex: 1;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 0;
+      font-size: 1.3rem;
+      cursor: pointer;
+    }
+
+    .emote-btn:active {
+      transform: scale(0.9);
+    }
+
+    .floating-emote {
+      position: absolute;
+      font-size: 2.8rem;
+      pointer-events: none;
+      animation: floatUp 1.4s ease-out forwards;
+    }
+
+    @keyframes floatUp {
+      0% { opacity: 0; transform: translateY(20px) scale(0.5); }
+      20% { opacity: 1; transform: translateY(0) scale(1.1); }
+      100% { opacity: 0; transform: translateY(-90px) scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="logo">NEON RPS ARENA</div>
+      <div class="row">
+        <button id="soundToggle" class="icon-btn">🔊</button>
+        <button id="leaveBtn" class="icon-btn" style="display:none;">나가기</button>
+      </div>
+    </header>
+
+    <!-- 1. 로비 화면 -->
+    <section id="lobbyScreen" class="screen active">
+      <div class="card">
+        <label class="label">내 닉네임</label>
+        <div class="row" style="margin-bottom: 14px;">
+          <input id="nicknameInput" type="text" maxlength="10" placeholder="닉네임 입력" />
+          <button id="randomNickBtn" class="icon-btn" title="랜덤 닉네임">🎲</button>
+        </div>
+
+        <button id="randomMatchBtn" class="btn btn-random" style="margin-bottom: 10px;">🎲 1:1 랜덤 매치</button>
+        <div class="row">
+          <button id="createRoomBtn" class="btn btn-cyan">⚡ 방 만들기</button>
+          <button id="botModeBtn" class="btn btn-dark">🤖 AI 연습</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <label class="label">친구 방 코드로 입장</label>
+        <div class="row">
+          <input id="roomCodeInput" type="text" maxlength="5" placeholder="5자리 코드" style="text-transform: uppercase; letter-spacing: 3px; text-align: center;" />
+          <button id="joinRoomBtn" class="btn btn-pink" style="width: 110px;">입장</button>
+        </div>
+      </div>
+
+      <div id="lobbyStatus" class="status-msg"></div>
+    </section>
+
+    <!-- 2-A. 1:1 랜덤 매칭 대기 화면 -->
+    <section id="matchScreen" class="screen">
+      <div class="card" style="text-align: center; padding: 28px 20px;">
+        <div class="radar"></div>
+        <div id="matchCountBadge" class="count-pill">인원 1 / 2</div>
+        <h2 style="font-size: 1.25rem; margin-bottom: 8px; color: var(--yellow);">상대 1명 찾는 중...</h2>
+        <p id="matchStatus" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 20px;">랜덤 매치를 누른 상대를 기다리고 있습니다</p>
+        <button id="cancelMatchBtn" class="btn btn-dark">매칭 취소</button>
+      </div>
+    </section>
+
+    <!-- 2-B. 친구 초대 대기실 화면 -->
+    <section id="waitScreen" class="screen">
+      <div class="card" style="text-align: center;">
+        <p style="color: var(--muted); font-size: 0.95rem;">친구에게 방 코드 또는 초대 링크를 보내세요</p>
+        <div class="code-box">
+          <div id="displayRoomCode" class="code-text">-----</div>
+        </div>
+        <div class="row" style="margin-bottom: 10px;">
+          <button id="copyCodeBtn" class="btn btn-dark">📋 코드 복사</button>
+          <button id="copyLinkBtn" class="btn btn-cyan">🔗 초대 링크 복사</button>
+        </div>
+        <div id="waitStatus" class="status-msg">상대방 접속 기다리는 중...</div>
+      </div>
+    </section>
+
+    <!-- 3. 게임 대전 화면 -->
+    <section id="gameScreen" class="screen">
+      <div class="scoreboard">
+        <div>
+          <div id="myNameLabel" class="player-name">나</div>
+          <div id="myScoreLabel" class="player-score" style="color: var(--cyan);">0</div>
+        </div>
+        <div>
+          <div id="streakLabel" class="streak-badge">0연승</div>
+          <div id="drawLabel" style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">무승부 0</div>
+        </div>
+        <div>
+          <div id="oppNameLabel" class="player-name">상대</div>
+          <div id="oppScoreLabel" class="player-score" style="color: var(--pink);">0</div>
+        </div>
+      </div>
+
+      <div id="arena" class="arena">
+        <div class="hand-zone">
+          <div id="oppHand" class="hand-emoji">✊</div>
+          <div id="oppState" class="hand-state">상대 선택 대기 중...</div>
+        </div>
+
+        <div id="centerBanner" class="center-banner">패를 선택하세요!</div>
+
+        <div class="hand-zone">
+          <div id="myState" class="hand-state">아래에서 선택</div>
+          <div id="myHand" class="hand-emoji">✊</div>
+        </div>
+      </div>
+
+      <button id="rematchBtn" class="btn btn-cyan" style="display: none;">🔄 다시 하기</button>
+
+      <div id="choicePanel" class="choices">
+        <button class="choice-btn" data-choice="scissors">
+          <span class="emoji">✌️</span>
+          <span class="name">가위</span>
+        </button>
+        <button class="choice-btn" data-choice="rock">
+          <span class="emoji">✊</span>
+          <span class="name">바위</span>
+        </button>
+        <button class="choice-btn" data-choice="paper">
+          <span class="emoji">🖐️</span>
+          <span class="name">보</span>
+        </button>
+      </div>
+
+      <div class="emote-bar">
+        <button class="emote-btn" data-emote="😂">😂</button>
+        <button class="emote-btn" data-emote="😱">😱</button>
+        <button class="emote-btn" data-emote="🔥">🔥</button>
+        <button class="emote-btn" data-emote="👏">👏</button>
+        <button class="emote-btn" data-emote="😎">😎</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // --- 사운드 효과 (Web Audio API) ---
+    let soundOn = true;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playTone(freq, type = 'sine', duration = 0.12, delay = 0) {
+      if (!soundOn) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(audioCtx.currentTime + delay);
+      osc.stop(audioCtx.currentTime + delay + duration);
+    }
+
+    const sfx = {
+      click: () => playTone(520, 'triangle', 0.08),
+      tick: () => playTone(440, 'sine', 0.07),
+      match: () => { playTone(587, 'triangle', 0.1, 0); playTone(880, 'triangle', 0.18, 0.1); },
+      win: () => { playTone(523, 'triangle', 0.12, 0); playTone(659, 'triangle', 0.12, 0.1); playTone(784, 'triangle', 0.22, 0.2); },
+      lose: () => { playTone(320, 'sawtooth', 0.15, 0); playTone(220, 'sawtooth', 0.25, 0.15); },
+      draw: () => { playTone(440, 'sine', 0.1, 0); playTone(440, 'sine', 0.15, 0.12); }
+    };
+
+    // --- 상태 관리 ---
+    const EMOJI_MAP = { rock: '✊', paper: '🖐️', scissors: '✌️' };
+    const NAME_MAP = { rock: '바위', paper: '보', scissors: '가위' };
+    const RANDOM_NICKS = ['번개손', '가위장인', '바위왕', '보자기맨', '네온파이터', '승부사', '럭키가이', '무적손'];
+
+    let peer = null;
+    let conn = null;
+    let isBotMode = false;
+    let isMatchSearching = false;
+    let matchLoopTimer = null;
+    let myName = '';
+    let oppName = '상대방';
+    let roomCode = '';
+
+    let myChoice = null;
+    let oppChoice = null;
+    let roundLocked = false;
+    let myReadyRematch = false;
+    let oppReadyRematch = false;
+
+    let stats = { win: 0, lose: 0, draw: 0, streak: 0 };
+
+    // --- DOM 요소 ---
+    const screens = {
+      lobby: document.getElementById('lobbyScreen'),
+      match: document.getElementById('matchScreen'),
+      wait: document.getElementById('waitScreen'),
+      game: document.getElementById('gameScreen')
+    };
+
+    const nicknameInput = document.getElementById('nicknameInput');
+    const roomCodeInput = document.getElementById('roomCodeInput');
+    const lobbyStatus = document.getElementById('lobbyStatus');
+    const matchStatus = document.getElementById('matchStatus');
+    const matchCountBadge = document.getElementById('matchCountBadge');
+    const waitStatus = document.getElementById('waitStatus');
+    const leaveBtn = document.getElementById('leaveBtn');
+
+    function showScreen(name) {
+      Object.values(screens).forEach(s => s.classList.remove('active'));
+      screens[name].classList.add('active');
+      leaveBtn.style.display = (name === 'lobby' || name === 'match') ? 'none' : 'inline-block';
+    }
+
+    function setRandomNick() {
+      nicknameInput.value = RANDOM_NICKS[Math.floor(Math.random() * RANDOM_NICKS.length)] + Math.floor(10 + Math.random() * 89);
+    }
+    setRandomNick();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('room')) {
+      roomCodeInput.value = urlParams.get('room').toUpperCase().slice(0, 5);
+      lobbyStatus.textContent = '초대 코드가 입력되었습니다! [입장]을 눌러주세요.';
+    }
+
+    // --- PeerJS P2P 통신 ---
+    const PEER_PREFIX = 'neon-rps-arena-2026-';
+    // 1:1 매칭용 공용 대기 ID (누군가 먼저 1/2로 대기 중이면 2/2로 즉시 입장)
+    const RANDOM_LOBBY_ID = `${PEER_PREFIX}1v1-match-lobby`;
+
+    function generateCode(len = 5) {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let res = '';
+      for (let i = 0; i < len; i++) res += chars[Math.floor(Math.random() * chars.length)];
+      return res;
+    }
+
+    function cleanupNetwork() {
+      isMatchSearching = false;
+      if (matchLoopTimer) { clearTimeout(matchLoopTimer); matchLoopTimer = null; }
+      if (conn) { conn.close(); conn = null; }
+      if (peer) { peer.destroy(); peer = null; }
+      isBotMode = false;
+    }
+
+    // ========================================================
+    // 1:1 (2/2) 랜덤 매치
+    // ========================================================
+    document.getElementById('randomMatchBtn').addEventListener('click', () => {
+      sfx.click();
+      myName = nicknameInput.value.trim() || '플레이어';
+      cleanupNetwork();
+      isMatchSearching = true;
+      matchCountBadge.textContent = '인원 1 / 2';
+      matchStatus.textContent = '매칭 대기열 확인 중...';
+      showScreen('match');
+
+      start1v1RandomMatch();
+    });
+
+    function start1v1RandomMatch() {
+      if (!isMatchSearching) return;
+
+      // 1단계: 내가 먼저 1/2 대기 호스트가 될 수 있는지 시도
+      const hostPeer = new Peer(RANDOM_LOBBY_ID);
+      peer = hostPeer;
+
+      // 내가 1/2로 대기 등록 성공 → 다른 사람이 랜덤 매치 누를 때까지 대기
+      hostPeer.on('open', () => {
+        if (!isMatchSearching) return;
+        matchCountBadge.textContent = '인원 1 / 2';
+        matchStatus.textContent = '랜덤 매치를 누른 상대 1명을 기다리는 중...';
+      });
+
+      // 상대방 1명이 들어옴 → 2/2 매칭 성사!
+      hostPeer.on('connection', (incomingConn) => {
+        if (!isMatchSearching || conn) {
+          // 이미 2/2가 찼으면 추가 접속 차단
+          incomingConn.close();
+          return;
+        }
+        isMatchSearching = false;
+        conn = incomingConn;
+        matchCountBadge.textContent = '인원 2 / 2';
+        matchStatus.textContent = '매칭 완료! 게임을 시작합니다.';
+        sfx.match();
+        setupConnection();
+      });
+
+      // 이미 다른 사람(1/2)이 대기 중이라면 unavailable-id 에러 발생 → 그 사람에게 2/2로 연결!
+      hostPeer.on('error', (err) => {
+        if (!isMatchSearching) return;
+        hostPeer.destroy();
+
+        if (err.type === 'unavailable-id') {
+          joinWaitingOpponent();
+        } else {
+          matchStatus.textContent = '연결 재시도 중...';
+          matchLoopTimer = setTimeout(start1v1RandomMatch, 800);
+        }
+      });
+    }
+
+    function joinWaitingOpponent() {
+      if (!isMatchSearching) return;
+      matchStatus.textContent = '대기 중인 상대 발견! 연결 중...';
+
+      const guestPeer = new Peer();
+      peer = guestPeer;
+
+      guestPeer.on('open', () => {
+        if (!isMatchSearching) return;
+        const tempConn = guestPeer.connect(RANDOM_LOBBY_ID, { reliable: true });
+        let connected = false;
+
+        // 2.5초 안에 연결이 성사되지 않으면(상대가 방금 매칭됐거나 취소한 경우) 다시 내가 1/2로 대기
+        const timeout = setTimeout(() => {
+          if (connected || !isMatchSearching) return;
+          tempConn.close();
+          guestPeer.destroy();
+          start1v1RandomMatch();
+        }, 2500);
+
+        tempConn.on('open', () => {
+          if (!isMatchSearching || conn) {
+            tempConn.close();
+            return;
+          }
+          connected = true;
+          clearTimeout(timeout);
+          isMatchSearching = false;
+          conn = tempConn;
+          matchCountBadge.textContent = '인원 2 / 2';
+          matchStatus.textContent = '매칭 완료! 게임을 시작합니다.';
+          sfx.match();
+          setupConnection();
+        });
+
+        tempConn.on('error', () => {
+          if (connected || !isMatchSearching) return;
+          clearTimeout(timeout);
+          guestPeer.destroy();
+          matchLoopTimer = setTimeout(start1v1RandomMatch, 400);
+        });
+      });
+
+      guestPeer.on('error', () => {
+        if (!isMatchSearching) return;
+        guestPeer.destroy();
+        matchLoopTimer = setTimeout(start1v1RandomMatch, 600);
+      });
+    }
+
+    document.getElementById('cancelMatchBtn').addEventListener('click', () => {
+      sfx.click();
+      resetToLobby();
+    });
+
+    // ========================================================
+    // 비공개 방 만들기 & 입장
+    // ========================================================
+    document.getElementById('createRoomBtn').addEventListener('click', () => {
+      sfx.click();
+      myName = nicknameInput.value.trim() || '플레이어1';
+      cleanupNetwork();
+      roomCode = generateCode(5);
+      lobbyStatus.textContent = '온라인 방 생성 중...';
+
+      peer = new Peer(PEER_PREFIX + roomCode);
+
+      peer.on('open', () => {
+        lobbyStatus.textContent = '';
+        document.getElementById('displayRoomCode').textContent = roomCode;
+        waitStatus.textContent = '상대방 접속 기다리는 중...';
+        showScreen('wait');
+      });
+
+      peer.on('connection', (connection) => {
+        if (conn) { connection.close(); return; }
+        conn = connection;
+        sfx.match();
+        setupConnection();
+      });
+
+      peer.on('error', (err) => {
+        lobbyStatus.textContent = '연결 오류: 다시 시도해주세요 (' + err.type + ')';
+      });
+    });
+
+    document.getElementById('joinRoomBtn').addEventListener('click', () => {
+      sfx.click();
+      const code = roomCodeInput.value.trim().toUpperCase();
+      if (code.length < 4) {
+        lobbyStatus.textContent = '방 코드를 정확히 입력해주세요.';
+        return;
+      }
+      myName = nicknameInput.value.trim() || '플레이어2';
+      cleanupNetwork();
+      roomCode = code;
+      lobbyStatus.textContent = '방에 연결하는 중...';
+
+      peer = new Peer();
+      peer.on('open', () => {
+        conn = peer.connect(PEER_PREFIX + roomCode, { reliable: true });
+        setupConnection();
+      });
+
+      peer.on('error', () => {
+        lobbyStatus.textContent = '방을 찾을 수 없습니다. 코드를 확인해주세요.';
+      });
+    });
+
+    function setupConnection() {
+      const onConnected = () => {
+        lobbyStatus.textContent = '';
+        conn.send({ type: 'hello', name: myName });
+        resetStats();
+        startGameSession();
+      };
+
+      if (conn.open) {
+        onConnected();
+      } else {
+        conn.on('open', onConnected);
+      }
+
+      conn.on('data', (data) => {
+        if (data.type === 'hello') {
+          oppName = data.name || '상대방';
+          document.getElementById('oppNameLabel').textContent = oppName;
+        } else if (data.type === 'picked') {
+          oppChoice = 'READY';
+          document.getElementById('oppState').textContent = '✅ 선택 완료!';
+          document.getElementById('oppState').style.color = 'var(--cyan)';
+          if (myChoice) revealRound();
+        } else if (data.type === 'reveal') {
+          oppChoice = data.choice;
+          if (myChoice && !roundLocked) evaluateRound();
+        } else if (data.type === 'rematch') {
+          oppReadyRematch = true;
+          checkRematch();
+        } else if (data.type === 'emote') {
+          spawnFloatingEmote(data.emote, true);
+        }
+      });
+
+      conn.on('close', () => {
+        alert('상대방과의 연결이 끊어졌습니다.');
+        resetToLobby();
+      });
+    }
+
+    // AI 봇 모드
+    document.getElementById('botModeBtn').addEventListener('click', () => {
+      sfx.click();
+      cleanupNetwork();
+      isBotMode = true;
+      myName = nicknameInput.value.trim() || '나';
+      oppName = '🤖 AI 알파봇';
+      resetStats();
+      startGameSession();
+    });
+
+    // --- 게임 진행 로직 ---
+    function resetStats() {
+      stats = { win: 0, lose: 0, draw: 0, streak: 0 };
+      updateScoreboard();
+    }
+
+    function updateScoreboard() {
+      document.getElementById('myNameLabel').textContent = myName;
+      document.getElementById('oppNameLabel').textContent = oppName;
+      document.getElementById('myScoreLabel').textContent = stats.win;
+      document.getElementById('oppScoreLabel').textContent = stats.lose;
+      document.getElementById('drawLabel').textContent = `무승부 ${stats.draw}`;
+      document.getElementById('streakLabel').textContent = `${stats.streak}연승`;
+    }
+
+    function startGameSession() {
+      showScreen('game');
+      startNewRound();
+    }
+
+    function startNewRound() {
+      myChoice = null;
+      oppChoice = null;
+      roundLocked = false;
+      myReadyRematch = false;
+      oppReadyRematch = false;
+
+      document.getElementById('myHand').textContent = '✊';
+      document.getElementById('oppHand').textContent = '✊';
+      document.getElementById('myHand').classList.add('shake');
+      document.getElementById('oppHand').classList.add('shake');
+
+      document.getElementById('myState').textContent = '패를 선택하세요';
+      document.getElementById('myState').style.color = 'var(--muted)';
+      document.getElementById('oppState').textContent = isBotMode ? 'AI 계산 중...' : '상대 선택 대기 중...';
+      document.getElementById('oppState').style.color = 'var(--muted)';
+
+      const banner = document.getElementById('centerBanner');
+      banner.textContent = '가위 · 바위 · 보!';
+      banner.style.color = 'var(--text)';
+
+      document.getElementById('rematchBtn').style.display = 'none';
+      document.getElementById('rematchBtn').textContent = '🔄 다시 하기';
+      document.getElementById('rematchBtn').disabled = false;
+
+      document.querySelectorAll('.choice-btn').forEach(btn => {
+        btn.disabled = false;
+        btn.classList.remove('selected');
+      });
+    }
+
+    document.querySelectorAll('.choice-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (myChoice || roundLocked) return;
+        sfx.click();
+        myChoice = btn.dataset.choice;
+
+        document.querySelectorAll('.choice-btn').forEach(b => {
+          b.disabled = true;
+          if (b === btn) b.classList.add('selected');
+        });
+
+        document.getElementById('myState').textContent = `내 선택: ${NAME_MAP[myChoice]}`;
+        document.getElementById('myState').style.color = 'var(--cyan)';
+
+        if (isBotMode) {
+          const pool = ['rock', 'paper', 'scissors'];
+          oppChoice = pool[Math.floor(Math.random() * 3)];
+          document.getElementById('oppState').textContent = '✅ 선택 완료!';
+          setTimeout(evaluateRound, 450);
+        } else if (conn && conn.open) {
+          conn.send({ type: 'picked' });
+          if (oppChoice === 'READY') revealRound();
+        }
+      });
+    });
+
+    function revealRound() {
+      if (conn && conn.open) {
+        conn.send({ type: 'reveal', choice: myChoice });
+      }
+    }
+
+    function evaluateRound() {
+      if (roundLocked) return;
+      roundLocked = true;
+
+      const banner = document.getElementById('centerBanner');
+      let count = 3;
+      banner.textContent = count;
+      sfx.tick();
+
+      const timer = setInterval(() => {
+        count--;
+        if (count > 0) {
+          banner.textContent = count;
+          sfx.tick();
+        } else {
+          clearInterval(timer);
+          showResult();
+        }
+      }, 320);
+    }
+
+    function showResult() {
+      const myHand = document.getElementById('myHand');
+      const oppHand = document.getElementById('oppHand');
+      myHand.classList.remove('shake');
+      oppHand.classList.remove('shake');
+
+      myHand.textContent = EMOJI_MAP[myChoice];
+      oppHand.textContent = EMOJI_MAP[oppChoice];
+      document.getElementById('oppState').textContent = `상대 선택: ${NAME_MAP[oppChoice]}`;
+
+      const banner = document.getElementById('centerBanner');
+      if (myChoice === oppChoice) {
+        banner.textContent = '🤝 무승부!';
+        banner.style.color = 'var(--yellow)';
+        stats.draw++;
+        sfx.draw();
+      } else if (
+        (myChoice === 'rock' && oppChoice === 'scissors') ||
+        (myChoice === 'scissors' && oppChoice === 'paper') ||
+        (myChoice === 'paper' && oppChoice === 'rock')
+      ) {
+        banner.textContent = '🎉 승리했습니다!';
+        banner.style.color = 'var(--cyan)';
+        stats.win++;
+        stats.streak++;
+        sfx.win();
+      } else {
+        banner.textContent = '💥 패배했습니다...';
+        banner.style.color = 'var(--pink)';
+        stats.lose++;
+        stats.streak = 0;
+        sfx.lose();
+      }
+
+      updateScoreboard();
+      document.getElementById('rematchBtn').style.display = 'block';
+    }
+
+    document.getElementById('rematchBtn').addEventListener('click', () => {
+      sfx.click();
+      if (isBotMode) {
+        startNewRound();
+        return;
+      }
+      myReadyRematch = true;
+      const btn = document.getElementById('rematchBtn');
+      btn.textContent = '⏳ 상대방 수락 대기 중...';
+      btn.disabled = true;
+      if (conn && conn.open) conn.send({ type: 'rematch' });
+      checkRematch();
+    });
+
+    function checkRematch() {
+      if (myReadyRematch && oppReadyRematch) {
+        startNewRound();
+      } else if (oppReadyRematch && !myReadyRematch) {
+        document.getElementById('rematchBtn').textContent = '🔥 상대가 재대결 요청! (클릭)';
+      }
+    }
+
+    document.querySelectorAll('.emote-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        sfx.tick();
+        const emote = btn.dataset.emote;
+        spawnFloatingEmote(emote, false);
+        if (conn && conn.open) conn.send({ type: 'emote', emote });
+      });
+    });
+
+    function spawnFloatingEmote(emote, fromOpponent) {
+      const arena = document.getElementById('arena');
+      const el = document.createElement('div');
+      el.className = 'floating-emote';
+      el.textContent = emote;
+      el.style.left = fromOpponent ? '65%' : '25%';
+      el.style.top = fromOpponent ? '25%' : '65%';
+      arena.appendChild(el);
+      setTimeout(() => el.remove(), 1400);
+    }
+
+    document.getElementById('randomNickBtn').addEventListener('click', () => { sfx.click(); setRandomNick(); });
+
+    document.getElementById('soundToggle').addEventListener('click', (e) => {
+      soundOn = !soundOn;
+      e.target.textContent = soundOn ? '🔊' : '🔇';
+    });
+
+    document.getElementById('copyCodeBtn').addEventListener('click', () => {
+      navigator.clipboard.writeText(roomCode);
+      waitStatus.textContent = '✅ 방 코드가 복사되었습니다!';
+    });
+
+    document.getElementById('copyLinkBtn').addEventListener('click', () => {
+      const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+      navigator.clipboard.writeText(url);
+      waitStatus.textContent = '✅ 초대 링크가 복사되었습니다! 친구에게 공유하세요.';
+    });
+
+    function resetToLobby() {
+      cleanupNetwork();
+      lobbyStatus.textContent = '';
+      showScreen('lobby');
+    }
+
+    leaveBtn.addEventListener('click', () => {
+      sfx.click();
+      resetToLobby();
+    });
+  </script>
+</body>
+</html>
